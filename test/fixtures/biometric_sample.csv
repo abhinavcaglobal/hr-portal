@@ -1,0 +1,14 @@
+,,,,,,
+,,,,,,
+,,,,,,
+Transaction,,,,,,
+Export Time: 2026-06-22 18:20,,,,,,
+Operator: admin,,,,,,
+Time Period: 2026-06-01 - 2026-06-07,,,,,,
+Name,ID,Date,Week,Time,Verification Method,Attendance Check Point
+Ritu,001,2026-06-01,Monday,13:06,Face,IN-Cardreader 01
+Ritu,001,2026-06-01,Monday,16:22,Face,OUT-Cardreader 01
+Ritu,001,2026-06-01,Monday,16:23,Face,IN-Cardreader 01
+Ritu,001,2026-06-01,Monday,18:24,Face,OUT-Cardreader 01
+Ritu,001,2026-06-02,Tuesday,13:04,Face,IN-Cardreader 01
+Ritu,001,2026-06-02,Tuesday,17:57,Face,OUT-Cardreader 01

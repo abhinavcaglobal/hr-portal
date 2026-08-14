@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function authEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isAdmin() {
+      // HR admin (Ritu Sharma) — full upload/history access; same email is also an employee.
+      return signedIn() && authEmail() == 'hr-india@caglobal.com';
+    }
+
+    function isOwnerEmail(email) {
+      return signedIn()
+        && email is string
+        && email.size() > 0
+        && authEmail() == email.lower();
+    }
+
+    match /employees/{document=**} {
+      allow read: if isOwnerEmail(resource.data.email) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /employees_by_email/{email} {
+      allow read: if isOwnerEmail(email) || isAdmin();
+      // HR admin must be able to create/update index rows during roster upload and sync.
+      allow create: if isAdmin()
+        || (isOwnerEmail(email)
+            && request.resource.data.email.lower() == email.lower()
+            && request.resource.data.name is string
+            && request.resource.data.name.size() > 0);
+      allow update, delete: if isAdmin();
+    }
+
+    match /attendance/{document=**} {
+      allow read: if isAdmin() || isOwnerEmail(resource.data.employeeEmail);
+      allow write: if isAdmin();
+    }
+
+    match /upload_history/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /login_hours/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Shared company-wide calendar: same document for every employee.
+    match /holiday_calendars/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

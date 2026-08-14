@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Dev rules: optional file archive uploads from admin.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email.lower() == 'hr-india@caglobal.com';
+    }
+
+    match /uploads/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    match /holiday_calendars/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

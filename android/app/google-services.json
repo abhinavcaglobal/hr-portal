@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "892173139237",
+    "project_id": "ca-global-leave-portal",
+    "storage_bucket": "ca-global-leave-portal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:892173139237:android:eb904cf032ad8a9bb96ecc",
+        "android_client_info": {
+          "package_name": "com.example.hr_portal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBX_rRLWzPrX1P3eHWSYZjP5POZeSS84RY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
