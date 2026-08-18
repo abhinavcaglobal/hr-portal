@@ -20,6 +20,7 @@ class AttendanceCalendarMergeService {
     AttendanceStatus.leave,
     AttendanceStatus.halfLeave,
     AttendanceStatus.shortLeave,
+    AttendanceStatus.unpaidLeave,
   };
 
   List<AttendanceRecord> merge({

@@ -184,7 +184,8 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         final status = (doc.data()['status'] as String? ?? '').toUpperCase();
         if (status == AttendanceStatus.leave ||
             status == AttendanceStatus.halfLeave ||
-            status == AttendanceStatus.shortLeave) {
+            status == AttendanceStatus.shortLeave ||
+            status == AttendanceStatus.unpaidLeave) {
           protectedDocIds.add(doc.id);
         }
       }

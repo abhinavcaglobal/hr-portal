@@ -17,6 +17,26 @@ abstract class LoginHoursRepository {
     required int month,
   });
 
+  /// Stored records for one employee on one date, without roster padding.
+  Future<List<LoginHoursRecord>> getRecordsForEmployeeDate({
+    required String employeeId,
+    required DateTime date,
+  });
+
+  /// Stored records for one employee between [start] and [end], inclusive.
+  Future<List<LoginHoursRecord>> getRecordsForEmployeeRange({
+    required String employeeId,
+    required DateTime start,
+    required DateTime end,
+  });
+
+  /// Stored records for all employees between [start] and [end], inclusive.
+  /// Does not pad the biometric roster.
+  Future<List<LoginHoursRecord>> getRecordsForDateRange({
+    required DateTime start,
+    required DateTime end,
+  });
+
   Future<void> importFromBiometricRecords(
     List<BiometricDailyAttendance> records,
   );
@@ -95,6 +115,88 @@ class LoginHoursRepositoryImpl implements LoginHoursRepository {
         code: e.code,
       );
     }
+  }
+
+  @override
+  Future<List<LoginHoursRecord>> getRecordsForEmployeeDate({
+    required String employeeId,
+    required DateTime date,
+  }) {
+    return getRecordsForEmployeeRange(
+      employeeId: employeeId,
+      start: date,
+      end: date,
+    );
+  }
+
+  @override
+  Future<List<LoginHoursRecord>> getRecordsForEmployeeRange({
+    required String employeeId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    try {
+      final snapshot = await _collection
+          .where('employeeId', isEqualTo: employeeId)
+          .get();
+      return _filterAndSort(snapshot.docs, start: start, end: end);
+    } on FirebaseException catch (e) {
+      throw DataException(
+        e.message ?? 'Failed to load login hours.',
+        code: e.code,
+      );
+    }
+  }
+
+  @override
+  Future<List<LoginHoursRecord>> getRecordsForDateRange({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    try {
+      final startStr = _formatDate(DateTime(start.year, start.month, start.day));
+      final endStr = _formatDate(DateTime(end.year, end.month, end.day));
+      final snapshot = await _collection
+          .where('date', isGreaterThanOrEqualTo: startStr)
+          .where('date', isLessThanOrEqualTo: endStr)
+          .get();
+
+      final records = snapshot.docs
+          .map((doc) => LoginHoursRecord.fromMap(doc.data(), id: doc.id))
+          .toList();
+      records.sort(_byDateThenName);
+      return records;
+    } on FirebaseException catch (e) {
+      throw DataException(
+        e.message ?? 'Failed to load login hours.',
+        code: e.code,
+      );
+    }
+  }
+
+  List<LoginHoursRecord> _filterAndSort(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
+    required DateTime start,
+    required DateTime end,
+  }) {
+    final rangeStart = DateTime(start.year, start.month, start.day);
+    final rangeEnd = DateTime(end.year, end.month, end.day);
+    final records = docs
+        .map((doc) => LoginHoursRecord.fromMap(doc.data(), id: doc.id))
+        .where(
+          (record) =>
+              !record.date.isBefore(rangeStart) &&
+              !record.date.isAfter(rangeEnd),
+        )
+        .toList();
+    records.sort(_byDateThenName);
+    return records;
+  }
+
+  int _byDateThenName(LoginHoursRecord a, LoginHoursRecord b) {
+    final byDate = a.date.compareTo(b.date);
+    if (byDate != 0) return byDate;
+    return a.employeeName.toLowerCase().compareTo(b.employeeName.toLowerCase());
   }
 
   @override

@@ -14,6 +14,7 @@ void main() {
       expect(service.deductionForStatus('L'), 1.0);
       expect(service.deductionForStatus('HL'), 0.5);
       expect(service.deductionForStatus('SL'), 0.25);
+      expect(service.deductionForStatus('UL'), 0);
     });
 
     group(

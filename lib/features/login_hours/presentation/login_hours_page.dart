@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/core/router/app_router.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
 import 'package:hr_portal/core/widgets/error_view.dart';
@@ -10,6 +11,7 @@ import 'package:hr_portal/models/login_hours_record.dart';
 import 'package:hr_portal/providers/admin_auth_providers.dart';
 import 'package:hr_portal/providers/login_hours_providers.dart';
 import 'package:hr_portal/services/login_hours_display_service.dart';
+import 'package:hr_portal/services/login_hours_range.dart';
 import 'package:intl/intl.dart';
 
 class LoginHoursPage extends ConsumerWidget {
@@ -18,11 +20,14 @@ class LoginHoursPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedDate = ref.watch(selectedLoginHoursDateProvider);
+    final period = ref.watch(loginHoursPeriodProvider);
+    final range = ref.watch(loginHoursRangeProvider);
     final recordsAsync = ref.watch(loginHoursForDateProvider);
     final displayService = ref.watch(loginHoursDisplayServiceProvider);
     final canEdit = ref.watch(isHrAdminAccountProvider);
+    final viewerName = ref.watch(loginHoursViewerNameProvider);
+    final isOwnView = !canEdit;
     final isSaving = ref.watch(loginHoursEditControllerProvider).isLoading;
-    final dateFormat = DateFormat('dd MMM yyyy');
 
     ref.listen(loginHoursEditControllerProvider, (previous, next) {
       if (next.hasValue && !next.isLoading && previous?.isLoading == true) {
@@ -46,7 +51,7 @@ class LoginHoursPage extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back',
-          onPressed: () => context.go(AppRoutes.home),
+          onPressed: () => context.go(AppRoutes.attendanceLeaves),
         ),
       ),
       body: ResponsivePadding(
@@ -56,24 +61,86 @@ class LoginHoursPage extends ConsumerWidget {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      color: Theme.of(context).colorScheme.primary,
+                    SegmentedButton<LoginHoursPeriod>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(
+                          value: LoginHoursPeriod.day,
+                          label: Text('Day'),
+                        ),
+                        ButtonSegment(
+                          value: LoginHoursPeriod.week,
+                          label: Text('Week'),
+                        ),
+                        ButtonSegment(
+                          value: LoginHoursPeriod.month,
+                          label: Text('Month'),
+                        ),
+                        ButtonSegment(
+                          value: LoginHoursPeriod.custom,
+                          label: Text('Custom'),
+                        ),
+                      ],
+                      selected: {period},
+                      onSelectionChanged: (selection) async {
+                        final next = selection.first;
+                        ref.read(loginHoursPeriodProvider.notifier).state = next;
+                        if (next == LoginHoursPeriod.custom) {
+                          await _pickCustomRange(context, ref, range);
+                        }
+                      },
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        dateFormat.format(selectedDate),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _pickDate(context, ref, selectedDate),
-                      icon: const Icon(Icons.edit_calendar_outlined, size: 18),
-                      label: const Text('Change Date'),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _rangeLabel(period, range),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (period == LoginHoursPeriod.day)
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                _pickDate(context, ref, selectedDate),
+                            icon: const Icon(
+                              Icons.edit_calendar_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Change Date'),
+                          )
+                        else if (period == LoginHoursPeriod.custom)
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                _pickCustomRange(context, ref, range),
+                            icon: const Icon(
+                              Icons.date_range_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Change Range'),
+                          )
+                        else ...[
+                          IconButton(
+                            tooltip: 'Previous',
+                            onPressed: () => _shiftPeriod(ref, period, -1),
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          IconButton(
+                            tooltip: 'Next',
+                            onPressed: () => _shiftPeriod(ref, period, 1),
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -92,6 +159,36 @@ class LoginHoursPage extends ConsumerWidget {
             ],
             recordsAsync.maybeWhen(
               data: (records) {
+                if (isOwnView) {
+                  final name = viewerName ??
+                      (records.isEmpty ? null : records.first.employeeName);
+                  if (name == null || name.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Showing login hours for $name',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 if (records.isEmpty) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -126,7 +223,34 @@ class LoginHoursPage extends ConsumerWidget {
                   ),
                 );
               },
-              orElse: () => const SizedBox.shrink(),
+              orElse: () {
+                if (!isOwnView || viewerName == null) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Showing login hours for $viewerName',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -136,12 +260,18 @@ class LoginHoursPage extends ConsumerWidget {
                     loading: () => const AppLoadingIndicator(
                       message: 'Loading login hours...',
                     ),
-                    error: (error, _) => ErrorView(message: error.toString()),
+                    error: (error, _) => ErrorView(
+                      message: error is AppException
+                          ? error.message
+                          : error.toString(),
+                    ),
                     data: (records) => _LoginHoursTable(
                       records: records,
-                      selectedDate: selectedDate,
                       displayService: displayService,
                       canEdit: canEdit,
+                      isOwnView: isOwnView,
+                      viewerName: viewerName,
+                      showDateColumn: !range.isSingleDay,
                     ),
                   ),
                   if (isSaving)
@@ -177,20 +307,69 @@ class LoginHoursPage extends ConsumerWidget {
       ref.read(selectedLoginHoursDateProvider.notifier).state = picked;
     }
   }
+
+  Future<void> _pickCustomRange(
+    BuildContext context,
+    WidgetRef ref,
+    LoginHoursDateRange current,
+  ) async {
+    final today = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: today,
+      initialDateRange: DateTimeRange(start: current.start, end: current.end),
+    );
+    if (picked == null) return;
+    ref.read(loginHoursCustomStartProvider.notifier).state = picked.start;
+    ref.read(loginHoursCustomEndProvider.notifier).state = picked.end;
+    ref.read(selectedLoginHoursDateProvider.notifier).state = picked.start;
+  }
+
+  void _shiftPeriod(WidgetRef ref, LoginHoursPeriod period, int direction) {
+    final current = ref.read(selectedLoginHoursDateProvider);
+    final next = switch (period) {
+      LoginHoursPeriod.week => current.add(Duration(days: 7 * direction)),
+      LoginHoursPeriod.month => DateTime(
+        current.year,
+        current.month + direction,
+        1,
+      ),
+      _ => current,
+    };
+    final today = DateTime.now();
+    final clamped = next.isAfter(today) ? today : next;
+    ref.read(selectedLoginHoursDateProvider.notifier).state = clamped;
+  }
+
+  String _rangeLabel(LoginHoursPeriod period, LoginHoursDateRange range) {
+    final dayFormat = DateFormat('dd MMM yyyy');
+    if (period == LoginHoursPeriod.month) {
+      return DateFormat('MMMM yyyy').format(range.start);
+    }
+    if (range.isSingleDay) {
+      return dayFormat.format(range.start);
+    }
+    return '${DateFormat('dd MMM').format(range.start)} – ${dayFormat.format(range.end)}';
+  }
 }
 
 class _LoginHoursTable extends ConsumerWidget {
   const _LoginHoursTable({
     required this.records,
-    required this.selectedDate,
     required this.displayService,
     required this.canEdit,
+    required this.isOwnView,
+    required this.showDateColumn,
+    this.viewerName,
   });
 
   final List<LoginHoursRecord> records;
-  final DateTime selectedDate;
   final LoginHoursDisplayService displayService;
   final bool canEdit;
+  final bool isOwnView;
+  final bool showDateColumn;
+  final String? viewerName;
 
   static const _headerStyle = TextStyle(fontWeight: FontWeight.w700);
 
@@ -202,8 +381,11 @@ class _LoginHoursTable extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'No login hours data for this date.\n'
-              'Data appears after HR uploads attendance via Create Attendance.',
+              isOwnView
+                  ? 'No login hours found for ${viewerName ?? 'you'} in this period.\n'
+                      'Data appears after HR uploads attendance via Create Attendance.'
+                  : 'No login hours data for this period.\n'
+                      'Data appears after HR uploads attendance via Create Attendance.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(
@@ -229,22 +411,31 @@ class _LoginHoursTable extends ConsumerWidget {
           Container(
             color: headerColor,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            child: const Row(
+            child: Row(
               children: [
-                SizedBox(width: 36, child: Text('S No.', style: _headerStyle)),
-                Expanded(
+                if (showDateColumn)
+                  const SizedBox(
+                    width: 88,
+                    child: Text('Date', style: _headerStyle),
+                  )
+                else
+                  const SizedBox(
+                    width: 36,
+                    child: Text('S No.', style: _headerStyle),
+                  ),
+                const Expanded(
                   flex: 3,
                   child: Text('Employee Name', style: _headerStyle),
                 ),
-                SizedBox(width: 64, child: Text('In', style: _headerStyle)),
-                SizedBox(width: 64, child: Text('Out', style: _headerStyle)),
-                SizedBox(
+                const SizedBox(width: 64, child: Text('In', style: _headerStyle)),
+                const SizedBox(width: 64, child: Text('Out', style: _headerStyle)),
+                const SizedBox(
                   width: 72,
                   child: Text('Duration', style: _headerStyle),
                 ),
-                SizedBox(width: 64, child: Text('Status', style: _headerStyle)),
-                Expanded(flex: 2, child: Text('Remarks', style: _headerStyle)),
-                SizedBox(width: 36),
+                const SizedBox(width: 64, child: Text('Status', style: _headerStyle)),
+                const Expanded(flex: 2, child: Text('Remarks', style: _headerStyle)),
+                const SizedBox(width: 36),
               ],
             ),
           ),
@@ -263,7 +454,7 @@ class _LoginHoursTable extends ConsumerWidget {
                   final record = records[index];
                   final display = displayService.format(
                     record: record,
-                    selectedDate: selectedDate,
+                    selectedDate: record.date,
                   );
 
                   return InkWell(
@@ -278,7 +469,15 @@ class _LoginHoursTable extends ConsumerWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(width: 36, child: Text('${index + 1}')),
+                          if (showDateColumn)
+                            SizedBox(
+                              width: 88,
+                              child: Text(
+                                DateFormat('dd MMM').format(record.date),
+                              ),
+                            )
+                          else
+                            SizedBox(width: 36, child: Text('${index + 1}')),
                           Expanded(flex: 3, child: Text(record.employeeName)),
                           SizedBox(width: 64, child: Text(display.inTime)),
                           SizedBox(width: 64, child: Text(display.outTime)),

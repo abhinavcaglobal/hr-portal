@@ -24,6 +24,8 @@ class AppConstants {
   static const String loginHoursCollection = 'login_hours';
   static const String uploadHistoryCollection = 'upload_history';
   static const String holidayCalendarsCollection = 'holiday_calendars';
+  static const String leaveRequestsCollection = 'leave_requests';
+  static const String leaveRequestLocksCollection = 'leave_request_locks';
 
   /// Opening balance in the sheet is the balance through end of May.
   static const int openingBalanceAsOfMonth = 5;

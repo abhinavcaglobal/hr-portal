@@ -3,6 +3,7 @@ import 'package:hr_portal/repositories/admin_repository.dart';
 import 'package:hr_portal/repositories/attendance_repository.dart';
 import 'package:hr_portal/repositories/employee_repository.dart';
 import 'package:hr_portal/repositories/holiday_calendar_repository.dart';
+import 'package:hr_portal/repositories/leave_request_repository.dart';
 import 'package:hr_portal/repositories/login_hours_repository.dart';
 import 'package:hr_portal/services/attendance_calendar_merge_service.dart';
 import 'package:hr_portal/services/attendance_import_service.dart';
@@ -10,6 +11,7 @@ import 'package:hr_portal/services/biometric_calendar_sync_service.dart';
 import 'package:hr_portal/services/employee_access_sync_service.dart';
 import 'package:hr_portal/services/employee_roster_import_service.dart';
 import 'package:hr_portal/services/leave_calculation_service.dart';
+import 'package:hr_portal/services/leave_request_service.dart';
 import 'package:hr_portal/services/opening_balance_import_service.dart';
 
 final employeeRepositoryProvider = Provider<EmployeeRepository>((ref) {
@@ -32,6 +34,18 @@ final holidayCalendarRepositoryProvider = Provider<HolidayCalendarRepository>((
   ref,
 ) {
   return HolidayCalendarRepositoryImpl();
+});
+
+final leaveRequestRepositoryProvider = Provider<LeaveRequestRepository>((ref) {
+  return LeaveRequestRepositoryImpl();
+});
+
+final leaveRequestServiceProvider = Provider<LeaveRequestService>((ref) {
+  return LeaveRequestService(
+    leaveRequestRepository: ref.watch(leaveRequestRepositoryProvider),
+    attendanceRepository: ref.watch(attendanceRepositoryProvider),
+    leaveCalculationService: ref.watch(leaveCalculationServiceProvider),
+  );
 });
 
 final leaveCalculationServiceProvider = Provider<LeaveCalculationService>((

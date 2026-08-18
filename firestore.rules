@@ -48,7 +48,7 @@ service cloud.firestore {
     }
 
     match /login_hours/{document=**} {
-      allow read: if true;
+      allow read: if signedIn();
       allow write: if isAdmin();
     }
 
@@ -56,6 +56,64 @@ service cloud.firestore {
     match /holiday_calendars/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    function validLeaveDeduction() {
+      return request.resource.data.leaveDeduction is number
+        && request.resource.data.leaveDeduction > 0
+        && (
+          (request.resource.data.leaveDuration == 'FULL_DAY'
+            && request.resource.data.leaveDeduction == 1.0)
+          || (request.resource.data.leaveDuration == 'HALF_DAY'
+            && request.resource.data.leaveDeduction == 0.5)
+          || (request.resource.data.leaveDuration == 'SHORT_LEAVE'
+            && request.resource.data.leaveDeduction == 0.25)
+        );
+    }
+
+    match /leave_requests/{requestId} {
+      // Missing docs must be readable so transactions can create a new request.
+      allow get: if isAdmin()
+        || resource == null
+        || isOwnerEmail(resource.data.employeeEmail);
+      allow list: if isAdmin() || isOwnerEmail(resource.data.employeeEmail);
+
+      allow create: if signedIn()
+        && request.resource.data.employeeEmail is string
+        && isOwnerEmail(request.resource.data.employeeEmail)
+        && request.resource.data.employeeId == request.resource.data.employeeEmail
+        && request.resource.data.status == 'PENDING'
+        && validLeaveDeduction()
+        && request.resource.data.requestId == requestId;
+
+      allow update: if isAdmin()
+        && resource.data.status == 'PENDING'
+        && (request.resource.data.status == 'APPROVED'
+            || request.resource.data.status == 'DECLINED')
+        && request.resource.data.leaveDeduction == resource.data.leaveDeduction
+        && request.resource.data.leaveDuration == resource.data.leaveDuration
+        && request.resource.data.leaveDate == resource.data.leaveDate
+        && request.resource.data.employeeEmail == resource.data.employeeEmail;
+
+      allow delete: if false;
+    }
+
+    match /leave_request_locks/{lockId} {
+      // Transactions read the lock before it exists; that get must be allowed.
+      allow get: if signedIn() && (
+        isAdmin()
+        || resource == null
+        || isOwnerEmail(resource.data.employeeEmail)
+      );
+      allow list: if isAdmin();
+
+      allow create: if signedIn()
+        && request.resource.data.employeeEmail is string
+        && isOwnerEmail(request.resource.data.employeeEmail)
+        && request.resource.data.status == 'PENDING';
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

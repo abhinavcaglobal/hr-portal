@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hr_portal/core/constants/app_constants.dart';
 import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/core/router/app_router.dart';
+import 'package:hr_portal/core/router/app_route_guard.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
 import 'package:hr_portal/core/widgets/responsive_layout.dart';
 import 'package:hr_portal/providers/auth_providers.dart';
@@ -79,7 +80,12 @@ class _EmployeeAuthPageState extends ConsumerState<EmployeeAuthPage> {
 
       ref.invalidate(currentEmployeeProvider);
       if (mounted) {
-        context.go(AppRoutes.attendanceLeaves);
+        final redirect = GoRouterState.of(context).uri.queryParameters['redirect'];
+        if (redirect == AppRouteGuard.loginHoursRedirect) {
+          context.go(AppRoutes.loginHours);
+        } else {
+          context.go(AppRoutes.attendanceLeaves);
+        }
       }
     } on AppException catch (e) {
       if (!mounted) {

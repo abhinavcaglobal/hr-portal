@@ -54,6 +54,14 @@ class AdminDashboardPage extends StatelessWidget {
                     onPressed: () => context.go(AppRoutes.adminAttendance),
                   ),
                   DashboardFeatureCard(
+                    icon: Icons.event_note_outlined,
+                    title: 'Leave Requests',
+                    description:
+                        'Review, approve or decline employee leave requests',
+                    buttonLabel: 'Open Leave Requests',
+                    onPressed: () => context.go(AppRoutes.adminLeaveRequests),
+                  ),
+                  DashboardFeatureCard(
                     icon: Icons.email_outlined,
                     title: 'Employee Emails',
                     description: 'Send an email to employees using Outlook',

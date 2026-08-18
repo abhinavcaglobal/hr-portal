@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hr_portal/core/constants/app_constants.dart';
 import 'package:hr_portal/core/router/app_router.dart';
+import 'package:hr_portal/core/router/app_route_guard.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
 import 'package:hr_portal/core/widgets/responsive_layout.dart';
 import 'package:hr_portal/providers/admin_auth_providers.dart';
@@ -108,7 +109,15 @@ class HomePage extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => context.go(AppRoutes.loginHours),
+                    onPressed: () {
+                      if (isEmployeeSession) {
+                        context.go(AppRoutes.loginHours);
+                      } else {
+                        context.go(
+                          '${AppRoutes.login}?redirect=${AppRouteGuard.loginHoursRedirect}',
+                        );
+                      }
+                    },
                     icon: const Icon(Icons.access_time_outlined),
                     label: const Text('Login Hours'),
                     style: ElevatedButton.styleFrom(

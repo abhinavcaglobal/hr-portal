@@ -2,16 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hr_portal/core/constants/attendance_status.dart';
+import 'package:hr_portal/core/constants/leave_request_constants.dart';
 import 'package:hr_portal/core/router/app_router.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
 import 'package:hr_portal/core/widgets/error_view.dart';
 import 'package:hr_portal/core/widgets/loading_overlay.dart';
 import 'package:hr_portal/core/widgets/responsive_layout.dart';
 import 'package:hr_portal/features/attendance/presentation/attendance_calendar.dart';
+import 'package:hr_portal/features/leave/presentation/apply_leave_dialog.dart';
+import 'package:hr_portal/features/leave/presentation/employee_leave_history.dart';
+import 'package:hr_portal/features/leave/presentation/leave_request_detail_dialog.dart';
 import 'package:hr_portal/models/attendance_record.dart';
+import 'package:hr_portal/models/employee.dart';
+import 'package:hr_portal/models/leave_request.dart';
 import 'package:hr_portal/providers/admin_auth_providers.dart';
 import 'package:hr_portal/providers/auth_providers.dart';
 import 'package:hr_portal/providers/employee_providers.dart';
+import 'package:hr_portal/providers/leave_request_providers.dart';
 
 class EmployeeDashboardPage extends ConsumerWidget {
   const EmployeeDashboardPage({super.key});
@@ -31,6 +38,7 @@ class EmployeeDashboardPage extends ConsumerWidget {
         ),
       ),
     );
+    final leaveRequestsAsync = ref.watch(employeeLeaveRequestsProvider);
 
     return employeeAsync.when(
       loading: () => const Scaffold(
@@ -114,29 +122,35 @@ class EmployeeDashboardPage extends ConsumerWidget {
             child: SingleChildScrollView(
               child: ResponsiveLayout(
                 mobile: _DashboardColumn(
+                  employee: employee,
                   userName: userName,
                   userEmail: emailLabel,
                   leaveBalanceAsync: leaveBalanceAsync,
                   selectedMonth: selectedMonth,
                   attendanceAsync: attendanceAsync,
+                  leaveRequestsAsync: leaveRequestsAsync,
                   onMonthChanged: (date) =>
                       ref.read(selectedMonthProvider.notifier).state = date,
                 ),
                 tablet: _DashboardRow(
+                  employee: employee,
                   userName: userName,
                   userEmail: emailLabel,
                   leaveBalanceAsync: leaveBalanceAsync,
                   selectedMonth: selectedMonth,
                   attendanceAsync: attendanceAsync,
+                  leaveRequestsAsync: leaveRequestsAsync,
                   onMonthChanged: (date) =>
                       ref.read(selectedMonthProvider.notifier).state = date,
                 ),
                 desktop: _DashboardRow(
+                  employee: employee,
                   userName: userName,
                   userEmail: emailLabel,
                   leaveBalanceAsync: leaveBalanceAsync,
                   selectedMonth: selectedMonth,
                   attendanceAsync: attendanceAsync,
+                  leaveRequestsAsync: leaveRequestsAsync,
                   onMonthChanged: (date) =>
                       ref.read(selectedMonthProvider.notifier).state = date,
                 ),
@@ -151,19 +165,23 @@ class EmployeeDashboardPage extends ConsumerWidget {
 
 class _DashboardColumn extends StatelessWidget {
   const _DashboardColumn({
+    required this.employee,
     required this.userName,
     required this.userEmail,
     required this.leaveBalanceAsync,
     required this.selectedMonth,
     required this.attendanceAsync,
+    required this.leaveRequestsAsync,
     required this.onMonthChanged,
   });
 
+  final Employee employee;
   final String userName;
   final String userEmail;
   final AsyncValue<double> leaveBalanceAsync;
   final DateTime selectedMonth;
   final AsyncValue<List<AttendanceRecord>> attendanceAsync;
+  final AsyncValue<List<LeaveRequest>> leaveRequestsAsync;
   final ValueChanged<DateTime> onMonthChanged;
 
   @override
@@ -180,9 +198,15 @@ class _DashboardColumn extends StatelessWidget {
         const _HolidayCalendarCard(),
         const SizedBox(height: 16),
         _AttendanceSection(
+          employee: employee,
           selectedMonth: selectedMonth,
           attendanceAsync: attendanceAsync,
+          leaveRequestsAsync: leaveRequestsAsync,
           onMonthChanged: onMonthChanged,
+        ),
+        const SizedBox(height: 16),
+        EmployeeLeaveHistory(
+          requests: leaveRequestsAsync.valueOrNull ?? const [],
         ),
       ],
     );
@@ -191,19 +215,23 @@ class _DashboardColumn extends StatelessWidget {
 
 class _DashboardRow extends StatelessWidget {
   const _DashboardRow({
+    required this.employee,
     required this.userName,
     required this.userEmail,
     required this.leaveBalanceAsync,
     required this.selectedMonth,
     required this.attendanceAsync,
+    required this.leaveRequestsAsync,
     required this.onMonthChanged,
   });
 
+  final Employee employee;
   final String userName;
   final String userEmail;
   final AsyncValue<double> leaveBalanceAsync;
   final DateTime selectedMonth;
   final AsyncValue<List<AttendanceRecord>> attendanceAsync;
+  final AsyncValue<List<LeaveRequest>> leaveRequestsAsync;
   final ValueChanged<DateTime> onMonthChanged;
 
   @override
@@ -231,10 +259,20 @@ class _DashboardRow extends StatelessWidget {
             const SizedBox(width: 24),
             Expanded(
               flex: 3,
-              child: _AttendanceSection(
-                selectedMonth: selectedMonth,
-                attendanceAsync: attendanceAsync,
-                onMonthChanged: onMonthChanged,
+              child: Column(
+                children: [
+                  _AttendanceSection(
+                    employee: employee,
+                    selectedMonth: selectedMonth,
+                    attendanceAsync: attendanceAsync,
+                    leaveRequestsAsync: leaveRequestsAsync,
+                    onMonthChanged: onMonthChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  EmployeeLeaveHistory(
+                    requests: leaveRequestsAsync.valueOrNull ?? const [],
+                  ),
+                ],
               ),
             ),
           ],
@@ -475,13 +513,17 @@ class _LeaveBalanceCard extends StatelessWidget {
 
 class _AttendanceSection extends ConsumerWidget {
   const _AttendanceSection({
+    required this.employee,
     required this.selectedMonth,
     required this.attendanceAsync,
+    required this.leaveRequestsAsync,
     required this.onMonthChanged,
   });
 
+  final Employee employee;
   final DateTime selectedMonth;
   final AsyncValue<List<AttendanceRecord>> attendanceAsync;
+  final AsyncValue<List<LeaveRequest>> leaveRequestsAsync;
   final ValueChanged<DateTime> onMonthChanged;
 
   @override
@@ -508,6 +550,7 @@ class _AttendanceSection extends ConsumerWidget {
                   onPressed: () {
                     ref.invalidate(monthlyAttendanceProvider);
                     ref.invalidate(leaveBalanceProvider);
+                    ref.invalidate(employeeLeaveRequestsProvider);
                   },
                 ),
               ],
@@ -516,11 +559,64 @@ class _AttendanceSection extends ConsumerWidget {
             attendanceAsync.when(
               loading: () => const AppLoadingIndicator(),
               error: (error, _) => ErrorView(message: error.toString()),
-              data: (records) => AttendanceCalendar(
-                selectedMonth: selectedMonth,
-                records: records,
-                onMonthChanged: onMonthChanged,
-              ),
+              data: (records) {
+                final requests = leaveRequestsAsync.valueOrNull ?? const [];
+                final overlays = requests
+                    .where(
+                      (request) =>
+                          request.leaveDate.year == selectedMonth.year &&
+                          request.leaveDate.month == selectedMonth.month,
+                    )
+                    .map(
+                      (request) => CalendarLeaveOverlay(
+                        day: request.leaveDate.day,
+                        status: request.status,
+                        duration: request.leaveDuration,
+                        halfDayType: request.halfDayType,
+                        fromTime: request.fromTime,
+                        toTime: request.toTime,
+                        isUnpaid: request.isUnpaid,
+                        adminComment: request.adminComment,
+                      ),
+                    )
+                    .toList();
+
+                return AttendanceCalendar(
+                  selectedMonth: selectedMonth,
+                  records: records,
+                  leaveOverlays: overlays,
+                  onMonthChanged: onMonthChanged,
+                  onDaySelected: (date) async {
+                    final dayRequest = _requestForDate(requests, date);
+                    if (dayRequest != null) {
+                      final action = await LeaveRequestDetailDialog.show(
+                        context,
+                        dayRequest,
+                      );
+                      if (action != LeaveRequestDetailAction.applyAgain ||
+                          !context.mounted) {
+                        return;
+                      }
+                    }
+
+                    final applied = await ApplyLeaveDialog.show(
+                      context,
+                      employee: employee,
+                      leaveDate: date,
+                    );
+                    if (applied == true && context.mounted) {
+                      ref.invalidate(employeeLeaveRequestsProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Leave request submitted. It is pending HR approval and has not been deducted from your balance.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
             ),
             const SizedBox(height: 16),
             const _StatusLegend(),
@@ -528,6 +624,21 @@ class _AttendanceSection extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  LeaveRequest? _requestForDate(List<LeaveRequest> requests, DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    for (final request in requests) {
+      final requestDay = DateTime(
+        request.leaveDate.year,
+        request.leaveDate.month,
+        request.leaveDate.day,
+      );
+      if (requestDay == day) {
+        return request;
+      }
+    }
+    return null;
   }
 }
 
@@ -539,24 +650,60 @@ class _StatusLegend extends StatelessWidget {
     return Wrap(
       spacing: 16,
       runSpacing: 8,
-      children: AttendanceStatus.labels.entries.map((entry) {
-        return Row(
+      children: [
+        ...AttendanceStatus.labels.entries.map((entry) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _LegendChip(
+                color: AttendanceCalendar.statusColor(entry.key),
+                label: entry.key,
+              ),
+              const SizedBox(width: 6),
+              Text('${entry.key} – ${entry.value}'),
+            ],
+          );
+        }),
+        Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _LegendChip(status: entry.key),
+            _LegendChip(
+              color: AttendanceCalendar.overlayColor(LeaveRequestStatus.pending),
+              label: 'Req',
+            ),
             const SizedBox(width: 6),
-            Text('${entry.key} – ${entry.value}'),
+            const Text('Requested Leave'),
           ],
-        );
-      }).toList(),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _LegendChip(
+              color: AttendanceCalendar.overlayColor(
+                LeaveRequestStatus.approved,
+              ),
+              label: 'OK',
+              darkText: true,
+            ),
+            const SizedBox(width: 6),
+            const Text('Approved Leave'),
+          ],
+        ),
+      ],
     );
   }
 }
 
 class _LegendChip extends StatelessWidget {
-  const _LegendChip({required this.status});
+  const _LegendChip({
+    required this.color,
+    required this.label,
+    this.darkText = false,
+  });
 
-  final String status;
+  final Color color;
+  final String label;
+  final bool darkText;
 
   @override
   Widget build(BuildContext context) {
@@ -565,13 +712,13 @@ class _LegendChip extends StatelessWidget {
       height: 28,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AttendanceCalendar.statusColor(status),
+        color: color,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        status,
-        style: const TextStyle(
-          color: Colors.white,
+        label,
+        style: TextStyle(
+          color: darkText ? const Color(0xFF3E2723) : Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.bold,
         ),

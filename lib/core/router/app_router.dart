@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hr_portal/features/admin/presentation/admin_attendance_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_dashboard_page.dart';
+import 'package:hr_portal/features/admin/presentation/admin_leave_requests_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_login_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_settings_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_upload_history_page.dart';
@@ -29,6 +30,7 @@ class AppRoutes {
   static const adminLogin = '/admin/login';
   static const adminDashboard = '/admin/dashboard';
   static const adminAttendance = '/admin/attendance';
+  static const adminLeaveRequests = '/admin/leave-requests';
   static const adminUpload = '/admin/upload';
   static const adminUploadHistory = '/admin/upload-history';
   static const adminSettings = '/admin/settings';
@@ -56,6 +58,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         hasAuthUser: authUser != null,
         isEmployeeSession: isEmployeeSession,
         isEmployeeLoading: employeeAsync.isLoading,
+        redirect: state.uri.queryParameters['redirect'],
       );
     },
     routes: [
@@ -90,6 +93,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.adminAttendance,
         builder: (context, state) => const AdminAttendancePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminLeaveRequests,
+        builder: (context, state) => const AdminLeaveRequestsPage(),
       ),
       GoRoute(
         path: AppRoutes.adminUpload,

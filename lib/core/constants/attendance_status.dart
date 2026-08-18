@@ -6,6 +6,7 @@ class AttendanceStatus {
   static const String leave = 'L';
   static const String halfLeave = 'HL';
   static const String shortLeave = 'SL';
+  static const String unpaidLeave = 'UL';
   static const String absent = 'A';
   static const String wfh = 'WFH';
 
@@ -17,6 +18,7 @@ class AttendanceStatus {
     leave: 'Leave',
     halfLeave: 'Half Leave',
     shortLeave: 'Short Leave',
+    unpaidLeave: 'Unpaid Leave',
   };
 
   static const Map<String, int> _severity = {
@@ -25,6 +27,7 @@ class AttendanceStatus {
     latePunch: 1,
     shortLeave: 2,
     halfLeave: 3,
+    unpaidLeave: 4,
     absent: 4,
     leave: 4,
   };
@@ -36,6 +39,7 @@ class AttendanceStatus {
     leave: 1.0,
     halfLeave: 0.5,
     shortLeave: 0.25,
+    unpaidLeave: 0,
     absent: 1.0,
   };
 

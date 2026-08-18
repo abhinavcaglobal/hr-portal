@@ -68,7 +68,7 @@ void main() {
       );
     });
 
-    test('allows unauthenticated access to login hours', () {
+    test('protects login hours for employee sessions', () {
       expect(
         AppRouteGuard.redirect(
           location: '/attendance-leaves/login-hours',
@@ -77,7 +77,47 @@ void main() {
           isEmployeeSession: false,
           isEmployeeLoading: false,
         ),
+        '/login?redirect=login-hours',
+      );
+    });
+
+    test('waits while employee profile is loading for login hours', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/attendance-leaves/login-hours',
+          isAdminAuthenticated: false,
+          hasAuthUser: true,
+          isEmployeeSession: false,
+          isEmployeeLoading: true,
+        ),
         isNull,
+      );
+    });
+
+    test('allows employees to view login hours', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/attendance-leaves/login-hours',
+          isAdminAuthenticated: false,
+          hasAuthUser: true,
+          isEmployeeSession: true,
+          isEmployeeLoading: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('sends signed-in employees from login to login hours when requested', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/login',
+          isAdminAuthenticated: false,
+          hasAuthUser: true,
+          isEmployeeSession: true,
+          isEmployeeLoading: false,
+          redirect: AppRouteGuard.loginHoursRedirect,
+        ),
+        '/attendance-leaves/login-hours',
       );
     });
 
@@ -189,10 +229,23 @@ void main() {
       );
     });
 
-    test('allows authenticated admin on employee emails route', () {
+    test('protects admin leave requests route', () {
       expect(
         AppRouteGuard.redirect(
-          location: '/admin/employee-emails',
+          location: '/admin/leave-requests',
+          isAdminAuthenticated: false,
+          hasAuthUser: false,
+          isEmployeeSession: false,
+          isEmployeeLoading: false,
+        ),
+        '/admin/login',
+      );
+    });
+
+    test('allows authenticated admin on leave requests route', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/admin/leave-requests',
           isAdminAuthenticated: true,
           hasAuthUser: true,
           isEmployeeSession: false,
