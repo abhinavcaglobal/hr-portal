@@ -49,9 +49,10 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   }
 
   Future<void> _signOut() async {
-    ref.read(adminAuthProvider.notifier).logoutAdminOnly();
+    await ref.read(adminAuthProvider.notifier).logoutFully();
+    ref.invalidate(currentEmployeeProvider);
     if (mounted) {
-      context.go(AppRoutes.adminLogin);
+      context.go(AppRoutes.home);
     }
   }
 

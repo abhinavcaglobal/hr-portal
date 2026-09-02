@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,12 +78,17 @@ class _BiometricAttendanceResultsPageState
             ),
           ),
           TextButton.icon(
-            onPressed: () => _copyCsv(result),
-            icon: const Icon(Icons.copy, color: Colors.white),
+            onPressed: () => _downloadCsv(result),
+            icon: const Icon(Icons.table_view, color: Colors.white),
             label: const Text(
-              'Copy CSV',
+              'CSV',
               style: TextStyle(color: Colors.white),
             ),
+          ),
+          IconButton(
+            onPressed: () => _copyCsv(result),
+            tooltip: 'Copy CSV',
+            icon: const Icon(Icons.copy, color: Colors.white),
           ),
         ],
       ),
@@ -134,6 +142,28 @@ class _BiometricAttendanceResultsPageState
                         color: Theme.of(
                           context,
                         ).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _downloadExcel(result),
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download Attendance'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Downloads Excel with Date header and columns: '
+                      'S.No, Employee Name, IN, OUT, Status, Remarks.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -198,8 +228,7 @@ class _BiometricAttendanceResultsPageState
                               '${record.employeeName} (${record.employeeId})',
                             ),
                             subtitle: Text(_dateKey(record.date)),
-                            trailing:
-                                record.isWeekOff || record.isWfh
+                            trailing: record.isWeekOff || record.isWfh
                                 ? Chip(label: Text(record.status))
                                 : _PunchSummary(
                                     firstIn: record.firstIn,
@@ -223,12 +252,10 @@ class _BiometricAttendanceResultsPageState
 
   Future<void> _downloadExcel(BiometricProcessResult result) async {
     final service = ref.read(biometricAttendanceServiceProvider);
-    final bytes = service.toExcelBytes(result);
-    final fileName = service.excelFileName(result);
-
     final saved = await FileDownloadHelper.saveBytes(
-      bytes: bytes,
-      fileName: fileName,
+      bytes: service.toExcelBytes(result),
+      fileName: service.excelFileName(result),
+      allowedExtensions: const ['xlsx'],
     );
 
     if (!mounted) return;
@@ -249,6 +276,26 @@ class _BiometricAttendanceResultsPageState
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('CSV copied to clipboard.')));
+  }
+
+  Future<void> _downloadCsv(BiometricProcessResult result) async {
+    final service = ref.read(biometricAttendanceServiceProvider);
+    final csv = service.toCsv(result);
+    final saved = await FileDownloadHelper.saveBytes(
+      bytes: Uint8List.fromList(utf8.encode(csv)),
+      fileName: service.csvFileName(result),
+      allowedExtensions: const ['csv'],
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved ? 'Attendance CSV downloaded.' : 'Download cancelled.',
+        ),
+      ),
+    );
   }
 
   String _dateKey(DateTime date) =>
@@ -278,10 +325,7 @@ class _PunchSummary extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          '${firstIn ?? '--'} → ${lastOut ?? '--'}',
-          style: style,
-        ),
+        Text('${firstIn ?? '--'} → ${lastOut ?? '--'}', style: style),
         Text(
           '$duration · $status',
           style: Theme.of(context).textTheme.bodySmall,

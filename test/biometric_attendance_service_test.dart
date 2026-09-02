@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/services/biometric_attendance_service.dart';
 
 void main() {
@@ -95,21 +96,49 @@ void main() {
             .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
             .value
             .toString(),
-        '2026-06-01',
+        'Date : 1st June 2026',
       );
       expect(
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1))
             .value
             .toString(),
-        'S.No.',
+        'S.No',
+      );
+      expect(
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 1))
+            .value
+            .toString(),
+        'Employee Name',
+      );
+      expect(
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1))
+            .value
+            .toString(),
+        'IN',
       );
       expect(
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 1))
             .value
             .toString(),
-        'IN Time',
+        'OUT',
+      );
+      expect(
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 1))
+            .value
+            .toString(),
+        'Status',
+      );
+      expect(
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: 1))
+            .value
+            .toString(),
+        'Remarks',
       );
       expect(
         sheet
@@ -120,17 +149,72 @@ void main() {
       );
       expect(
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 2))
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 2))
             .value
             .toString(),
         '13:06',
       );
       expect(
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 2))
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 2))
             .value
             .toString(),
         '18:24',
+      );
+      expect(
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 2))
+            .value
+            .toString(),
+        'HL',
+      );
+    });
+
+    test('exports calculated P, SL, and HL statuses in CSV', () {
+      final result = BiometricProcessResult(
+        fileName: 'attendance.csv',
+        periodStart: DateTime(2026, 6, 1),
+        periodEnd: DateTime(2026, 6, 3),
+        records: [
+          BiometricDailyAttendance(
+            employeeId: '001',
+            employeeName: 'Present Employee',
+            date: DateTime(2026, 6, 1),
+            status: 'P',
+            firstIn: '09:00',
+            lastOut: '17:00',
+          ),
+          BiometricDailyAttendance(
+            employeeId: '002',
+            employeeName: 'Short Leave Employee',
+            date: DateTime(2026, 6, 2),
+            status: 'SL',
+            firstIn: '09:00',
+            lastOut: '15:00',
+          ),
+          BiometricDailyAttendance(
+            employeeId: '003',
+            employeeName: 'Half Day Employee',
+            date: DateTime(2026, 6, 3),
+            status: 'HL',
+            firstIn: '09:00',
+            lastOut: '13:00',
+          ),
+        ],
+      );
+
+      final csv = service.toCsv(result);
+
+      expect(csv, contains('Date : 1st June 2026'));
+      expect(csv, contains('S.No,Employee Name,IN,OUT,Status,Remarks'));
+      expect(csv, contains('1,Present Employee,09:00,17:00,P,'));
+      expect(csv, contains('Date : 2nd June 2026'));
+      expect(csv, contains('1,Short Leave Employee,09:00,15:00,SL,'));
+      expect(csv, contains('Date : 3rd June 2026'));
+      expect(csv, contains('1,Half Day Employee,09:00,13:00,HL,'));
+      expect(
+        service.csvFileName(result),
+        'attendance_2026-06-01_to_2026-06-03.csv',
       );
     });
 
