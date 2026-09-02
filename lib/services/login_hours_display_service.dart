@@ -56,6 +56,16 @@ class LoginHoursDisplayService {
 
   String _displayStatus(LoginHoursRecord record) {
     if (record.manuallyEdited) {
+      final status = record.status.trim().toUpperCase();
+      if (status == AttendanceStatus.leave || status == AttendanceStatus.wfh) {
+        return status;
+      }
+      if (_hasValue(record.firstIn) || _hasValue(record.lastOut)) {
+        return statusCalculator.calculate(
+          firstIn: record.firstIn,
+          lastOut: record.lastOut,
+        );
+      }
       return record.status;
     }
     if (record.isWeekOff) {

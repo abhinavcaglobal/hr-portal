@@ -89,12 +89,32 @@ void main() {
       expect(result.status, 'SL');
     });
 
-    test('keeps manually edited status as stored', () {
+    test('recalculates manually edited time-based status from punches', () {
       final manual = LoginHoursRecord(
         employeeId: '004',
         employeeName: 'Manual User',
         date: yesterday,
-        status: 'HL',
+        status: 'SL',
+        firstIn: '12:08',
+        lastOut: '20:15',
+        manuallyEdited: true,
+      );
+
+      final result = service.format(
+        record: manual,
+        selectedDate: yesterday,
+        today: today,
+      );
+
+      expect(result.status, 'P');
+    });
+
+    test('keeps manually edited leave status as stored', () {
+      final manual = LoginHoursRecord(
+        employeeId: '004',
+        employeeName: 'Manual User',
+        date: yesterday,
+        status: 'L',
         firstIn: '12:03',
         manuallyEdited: true,
       );
@@ -105,7 +125,7 @@ void main() {
         today: today,
       );
 
-      expect(result.status, 'HL');
+      expect(result.status, 'L');
     });
 
     test('shows WFH for WFH roster employees without punches', () {

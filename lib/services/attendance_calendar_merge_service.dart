@@ -75,6 +75,17 @@ class AttendanceCalendarMergeService {
 
     if (record.manuallyEdited) {
       final status = record.status.trim().toUpperCase();
+      if (status == AttendanceStatus.leave || status == AttendanceStatus.wfh) {
+        return status;
+      }
+      // Time edits must recompute P/LP/SL/HL/A so the employee calendar
+      // reflects corrected punch times (e.g. 12:12 → 12:08 clears late/SL).
+      if (_hasValue(record.firstIn) || _hasValue(record.lastOut)) {
+        return statusCalculator.calculate(
+          firstIn: record.firstIn,
+          lastOut: record.lastOut,
+        );
+      }
       return status.isEmpty ? null : status;
     }
 

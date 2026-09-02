@@ -193,19 +193,35 @@ void main() {
       expect(merged.single.date, DateTime(2026, 7, 1));
     });
 
-    test('respects a manual status edit', () {
+    test('recalculates status from corrected times after a manual edit', () {
       final merged = mergeFor(
         hours: [
           loginHours(
             date: DateTime(2026, 8, 11),
-            status: 'HL',
+            status: 'SL',
+            firstIn: '12:08',
+            lastOut: '20:15',
+            manuallyEdited: true,
+          ),
+        ],
+      );
+
+      expect(merged.single.status, 'P');
+    });
+
+    test('respects a manual leave status edit', () {
+      final merged = mergeFor(
+        hours: [
+          loginHours(
+            date: DateTime(2026, 8, 11),
+            status: 'L',
             firstIn: '11:07',
             manuallyEdited: true,
           ),
         ],
       );
 
-      expect(merged.single.status, 'HL');
+      expect(merged.single.status, 'L');
     });
 
     test('returns days in date order', () {

@@ -54,6 +54,14 @@ class AdminDashboardPage extends StatelessWidget {
                     onPressed: () => context.go(AppRoutes.adminAttendance),
                   ),
                   DashboardFeatureCard(
+                    icon: Icons.access_time_outlined,
+                    title: 'Login Hours',
+                    description:
+                        'View and edit each employee\'s In / Out times and status',
+                    buttonLabel: 'Open Login Hours',
+                    onPressed: () => context.go(AppRoutes.adminLoginHours),
+                  ),
+                  DashboardFeatureCard(
                     icon: Icons.event_note_outlined,
                     title: 'Leave Requests',
                     description:

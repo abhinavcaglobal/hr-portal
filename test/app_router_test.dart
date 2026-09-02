@@ -242,10 +242,36 @@ void main() {
       );
     });
 
+    test('protects admin login hours route', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/admin/login-hours',
+          isAdminAuthenticated: false,
+          hasAuthUser: false,
+          isEmployeeSession: false,
+          isEmployeeLoading: false,
+        ),
+        '/admin/login',
+      );
+    });
+
     test('allows authenticated admin on leave requests route', () {
       expect(
         AppRouteGuard.redirect(
           location: '/admin/leave-requests',
+          isAdminAuthenticated: true,
+          hasAuthUser: true,
+          isEmployeeSession: false,
+          isEmployeeLoading: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('allows authenticated admin on login hours route', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/admin/login-hours',
           isAdminAuthenticated: true,
           hasAuthUser: true,
           isEmployeeSession: false,

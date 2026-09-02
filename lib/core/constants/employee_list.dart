@@ -28,7 +28,7 @@ class EmployeeList {
     'Ravneet Kaur',
     'Vineet Kumar',
     'Pratima',
-    'Jai Chand',
+    'Jaichand',
     'Anshul Kumar',
     'Ashima Malhotra',
     'Vikram Singh',

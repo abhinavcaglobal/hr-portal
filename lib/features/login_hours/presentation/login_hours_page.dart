@@ -3,19 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/core/router/app_router.dart';
+import 'package:hr_portal/core/utils/file_download_helper.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
 import 'package:hr_portal/core/widgets/error_view.dart';
 import 'package:hr_portal/core/widgets/loading_overlay.dart';
 import 'package:hr_portal/core/widgets/responsive_layout.dart';
 import 'package:hr_portal/models/login_hours_record.dart';
-import 'package:hr_portal/providers/admin_auth_providers.dart';
 import 'package:hr_portal/providers/login_hours_providers.dart';
 import 'package:hr_portal/services/login_hours_display_service.dart';
 import 'package:hr_portal/services/login_hours_range.dart';
 import 'package:intl/intl.dart';
 
 class LoginHoursPage extends ConsumerWidget {
-  const LoginHoursPage({super.key});
+  const LoginHoursPage({super.key, this.embedded = false});
+
+  /// When true, renders only the login-hours body for use inside AdminShell.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,7 +27,7 @@ class LoginHoursPage extends ConsumerWidget {
     final range = ref.watch(loginHoursRangeProvider);
     final recordsAsync = ref.watch(loginHoursForDateProvider);
     final displayService = ref.watch(loginHoursDisplayServiceProvider);
-    final canEdit = ref.watch(isHrAdminAccountProvider);
+    final canEdit = ref.watch(canManageLoginHoursProvider);
     final viewerName = ref.watch(loginHoursViewerNameProvider);
     final isOwnView = !canEdit;
     final isSaving = ref.watch(loginHoursEditControllerProvider).isLoading;
@@ -45,6 +48,284 @@ class LoginHoursPage extends ConsumerWidget {
       }
     });
 
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (embedded) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Login Hours',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'View and edit In / Out times, status, and remarks for each employee.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (canEdit) ...[
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: recordsAsync.maybeWhen(
+                    data: (records) => records.isEmpty
+                        ? null
+                        : () => _downloadExcel(context, ref, records),
+                    orElse: () => null,
+                  ),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download'),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<LoginHoursPeriod>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: LoginHoursPeriod.day,
+                      label: Text('Day'),
+                    ),
+                    ButtonSegment(
+                      value: LoginHoursPeriod.week,
+                      label: Text('Week'),
+                    ),
+                    ButtonSegment(
+                      value: LoginHoursPeriod.month,
+                      label: Text('Month'),
+                    ),
+                    ButtonSegment(
+                      value: LoginHoursPeriod.custom,
+                      label: Text('Custom'),
+                    ),
+                  ],
+                  selected: {period},
+                  onSelectionChanged: (selection) async {
+                    final next = selection.first;
+                    ref.read(loginHoursPeriodProvider.notifier).state = next;
+                    if (next == LoginHoursPeriod.custom) {
+                      await _pickCustomRange(context, ref, range);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _rangeLabel(period, range),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (period == LoginHoursPeriod.day)
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _pickDate(context, ref, selectedDate),
+                        icon: const Icon(
+                          Icons.edit_calendar_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('Change Date'),
+                      )
+                    else if (period == LoginHoursPeriod.custom)
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _pickCustomRange(context, ref, range),
+                        icon: const Icon(
+                          Icons.date_range_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('Change Range'),
+                      )
+                    else ...[
+                      IconButton(
+                        tooltip: 'Previous',
+                        onPressed: () => _shiftPeriod(ref, period, -1),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      IconButton(
+                        tooltip: 'Next',
+                        onPressed: () => _shiftPeriod(ref, period, 1),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (canEdit) ...[
+          const SizedBox(height: 8),
+          Text(
+            'HR edit mode — tap a row to update In, Out, Status, or Remarks.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+        recordsAsync.maybeWhen(
+          data: (records) {
+            if (isOwnView) {
+              final name = viewerName ??
+                  (records.isEmpty ? null : records.first.employeeName);
+              if (name == null || name.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Showing login hours for $name',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (records.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${records.length} employees',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Use mouse wheel or drag scrollbar to see all rows',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.65),
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          orElse: () {
+            if (!isOwnView || viewerName == null) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Showing login hours for $viewerName',
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Stack(
+            children: [
+              recordsAsync.when(
+                loading: () => const AppLoadingIndicator(
+                  message: 'Loading login hours...',
+                ),
+                error: (error, _) => ErrorView(
+                  message: error is AppException
+                      ? error.message
+                      : error.toString(),
+                ),
+                data: (records) => _LoginHoursTable(
+                  records: records,
+                  displayService: displayService,
+                  canEdit: canEdit,
+                  isOwnView: isOwnView,
+                  viewerName: viewerName,
+                  showDateColumn: !range.isSingleDay,
+                ),
+              ),
+              if (isSaving)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x33FFFFFF),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (embedded) {
+      return body;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const AppBarTitle(subtitle: 'Login Hours'),
@@ -53,238 +334,44 @@ class LoginHoursPage extends ConsumerWidget {
           tooltip: 'Back',
           onPressed: () => context.go(AppRoutes.attendanceLeaves),
         ),
+        actions: [
+          if (canEdit)
+            TextButton.icon(
+              onPressed: recordsAsync.maybeWhen(
+                data: (records) => records.isEmpty
+                    ? null
+                    : () => _downloadExcel(context, ref, records),
+                orElse: () => null,
+              ),
+              icon: const Icon(Icons.download, color: Colors.white),
+              label: const Text(
+                'Download',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+        ],
       ),
-      body: ResponsivePadding(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SegmentedButton<LoginHoursPeriod>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(
-                          value: LoginHoursPeriod.day,
-                          label: Text('Day'),
-                        ),
-                        ButtonSegment(
-                          value: LoginHoursPeriod.week,
-                          label: Text('Week'),
-                        ),
-                        ButtonSegment(
-                          value: LoginHoursPeriod.month,
-                          label: Text('Month'),
-                        ),
-                        ButtonSegment(
-                          value: LoginHoursPeriod.custom,
-                          label: Text('Custom'),
-                        ),
-                      ],
-                      selected: {period},
-                      onSelectionChanged: (selection) async {
-                        final next = selection.first;
-                        ref.read(loginHoursPeriodProvider.notifier).state = next;
-                        if (next == LoginHoursPeriod.custom) {
-                          await _pickCustomRange(context, ref, range);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _rangeLabel(period, range),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        if (period == LoginHoursPeriod.day)
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                _pickDate(context, ref, selectedDate),
-                            icon: const Icon(
-                              Icons.edit_calendar_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Change Date'),
-                          )
-                        else if (period == LoginHoursPeriod.custom)
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                _pickCustomRange(context, ref, range),
-                            icon: const Icon(
-                              Icons.date_range_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Change Range'),
-                          )
-                        else ...[
-                          IconButton(
-                            tooltip: 'Previous',
-                            onPressed: () => _shiftPeriod(ref, period, -1),
-                            icon: const Icon(Icons.chevron_left),
-                          ),
-                          IconButton(
-                            tooltip: 'Next',
-                            onPressed: () => _shiftPeriod(ref, period, 1),
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (canEdit) ...[
-              const SizedBox(height: 8),
-              Text(
-                'HR edit mode — tap a row to update In, Out, Status, or Remarks.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-            ],
-            recordsAsync.maybeWhen(
-              data: (records) {
-                if (isOwnView) {
-                  final name = viewerName ??
-                      (records.isEmpty ? null : records.first.employeeName);
-                  if (name == null || name.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.person_outline,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Showing login hours for $name',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                if (records.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${records.length} employees',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Use mouse wheel or drag scrollbar to see all rows',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.65),
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              orElse: () {
-                if (!isOwnView || viewerName == null) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Showing login hours for $viewerName',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Stack(
-                children: [
-                  recordsAsync.when(
-                    loading: () => const AppLoadingIndicator(
-                      message: 'Loading login hours...',
-                    ),
-                    error: (error, _) => ErrorView(
-                      message: error is AppException
-                          ? error.message
-                          : error.toString(),
-                    ),
-                    data: (records) => _LoginHoursTable(
-                      records: records,
-                      displayService: displayService,
-                      canEdit: canEdit,
-                      isOwnView: isOwnView,
-                      viewerName: viewerName,
-                      showDateColumn: !range.isSingleDay,
-                    ),
-                  ),
-                  if (isSaving)
-                    const Positioned.fill(
-                      child: ColoredBox(
-                        color: Color(0x33FFFFFF),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
+      body: ResponsivePadding(child: body),
+    );
+  }
+
+  Future<void> _downloadExcel(
+    BuildContext context,
+    WidgetRef ref,
+    List<LoginHoursRecord> records,
+  ) async {
+    final exporter = ref.read(loginHoursExcelExporterProvider);
+    final saved = await FileDownloadHelper.saveBytes(
+      bytes: exporter.export(records),
+      fileName: exporter.suggestedFileName(records),
+      allowedExtensions: const ['xlsx'],
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved ? 'Login hours Excel downloaded.' : 'Download cancelled.',
         ),
       ),
     );
@@ -528,12 +615,23 @@ class _LoginHoursTable extends ConsumerWidget {
     })
     display,
   ) async {
-    final inController = TextEditingController(text: display.inTime);
+    final resolver = ref.read(loginHoursStatusResolverProvider);
+    final inController = TextEditingController(
+      text: display.inTime == '-' ? '' : display.inTime,
+    );
     final outController = TextEditingController(
-      text: record.lastOut ?? display.outTime,
+      text: record.lastOut ?? (display.outTime == '-' ? '' : display.outTime),
     );
     final statusController = TextEditingController(text: display.status);
     final remarksController = TextEditingController(text: display.remarks);
+
+    void refreshStatus() {
+      statusController.text = resolver.resolve(
+        firstIn: inController.text,
+        lastOut: outController.text,
+        statusInput: statusController.text,
+      );
+    }
 
     final saved = await showDialog<bool>(
       context: context,
@@ -549,6 +647,7 @@ class _LoginHoursTable extends ConsumerWidget {
                   labelText: 'In Time',
                   hintText: 'e.g. 09:05',
                 ),
+                onChanged: (_) => refreshStatus(),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -557,13 +656,16 @@ class _LoginHoursTable extends ConsumerWidget {
                   labelText: 'Out Time',
                   hintText: 'e.g. 18:10',
                 ),
+                onChanged: (_) => refreshStatus(),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: statusController,
                 decoration: const InputDecoration(
                   labelText: 'Status',
-                  hintText: 'e.g. P, L, Half Day',
+                  hintText: 'Auto from times, or L / WFH / weekoff',
+                  helperText:
+                      'Status recalculates from In/Out (P, LP, SL, HL, A).',
                 ),
               ),
               const SizedBox(height: 12),
