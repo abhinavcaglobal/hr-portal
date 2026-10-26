@@ -5,6 +5,7 @@ import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/providers/auth_providers.dart';
 import 'package:hr_portal/providers/employee_providers.dart';
+import 'package:hr_portal/providers/monthly_attendance_matrix_providers.dart';
 import 'package:hr_portal/providers/repository_providers.dart';
 import 'package:hr_portal/services/biometric_attendance_service.dart';
 import 'package:hr_portal/services/biometric_calendar_sync_service.dart';
@@ -67,6 +68,7 @@ class BiometricAttendanceController
   void _refreshDashboardData() {
     _ref.invalidate(leaveBalanceProvider);
     _ref.invalidate(monthlyAttendanceProvider);
+    _ref.invalidate(monthlyAttendanceMatrixProvider);
   }
 }
 

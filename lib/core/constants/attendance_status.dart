@@ -10,6 +10,23 @@ class AttendanceStatus {
   static const String absent = 'A';
   static const String wfh = 'WFH';
 
+  /// Statuses written from biometric / login-hours sync into Firestore attendance.
+  static const Set<String> calendarSyncStatuses = {
+    present,
+    latePunch,
+    halfLeave,
+    shortLeave,
+    absent,
+    wfh,
+  };
+
+  /// Manual leave statuses that biometric re-sync must not overwrite.
+  /// HL/SL are time-derived and remain overwritable when punches change.
+  static const Set<String> biometricProtectedStatuses = {
+    leave,
+    unpaidLeave,
+  };
+
   static const Map<String, String> labels = {
     present: 'Present',
     latePunch: 'Late Punch',

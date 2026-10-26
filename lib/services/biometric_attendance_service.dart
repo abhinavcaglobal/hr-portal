@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
+import 'package:hr_portal/core/utils/attendance_clock_format.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/services/biometric_attendance_excel_exporter.dart';
 import 'package:hr_portal/services/biometric_attendance_processor.dart';
@@ -55,7 +57,14 @@ class BiometricAttendanceService {
 
     for (final dateKey in sortedDates) {
       final dayRecords = recordsByDate[dateKey]!
-        ..sort((a, b) => a.employeeId.compareTo(b.employeeId));
+        ..sort(
+          (a, b) => BiometricEmployeeRoster.compareReportOrder(
+            aName: a.employeeName,
+            aId: a.employeeId,
+            bName: b.employeeName,
+            bId: b.employeeId,
+          ),
+        );
       final date = dayRecords.first.date;
 
       buffer.writeln(_formatDateHeader(date));
@@ -66,8 +75,8 @@ class BiometricAttendanceService {
         buffer.writeln(
           '${index + 1},'
           '${_escape(record.employeeName)},'
-          '${record.firstIn ?? ''},'
-          '${record.lastOut ?? ''},'
+          '${formatAttendanceClock(record.firstIn)},'
+          '${formatAttendanceClock(record.lastOut)},'
           '${record.status},',
         );
       }

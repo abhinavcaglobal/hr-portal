@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
+import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
+import 'package:hr_portal/core/utils/attendance_clock_format.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:intl/intl.dart';
 
@@ -40,7 +42,14 @@ class BiometricAttendanceExcelExporter {
 
     for (final dateKey in sortedDates) {
       final dayRecords = recordsByDate[dateKey]!
-        ..sort((a, b) => a.employeeId.compareTo(b.employeeId));
+        ..sort(
+          (a, b) => BiometricEmployeeRoster.compareReportOrder(
+            aName: a.employeeName,
+            aId: a.employeeId,
+            bName: b.employeeName,
+            bId: b.employeeId,
+          ),
+        );
       final date = dayRecords.first.date;
 
       _writeDateHeader(sheet, rowIndex: rowIndex, date: date);
@@ -150,8 +159,8 @@ class BiometricAttendanceExcelExporter {
     final values = <CellValue>[
       IntCellValue(serial),
       TextCellValue(record.employeeName),
-      TextCellValue(record.firstIn ?? ''),
-      TextCellValue(record.lastOut ?? ''),
+      TextCellValue(formatAttendanceClock(record.firstIn)),
+      TextCellValue(formatAttendanceClock(record.lastOut)),
       TextCellValue(record.status),
       TextCellValue(''),
     ];

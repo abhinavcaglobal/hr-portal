@@ -54,6 +54,15 @@ class AdminDashboardPage extends StatelessWidget {
                     onPressed: () => context.go(AppRoutes.adminAttendance),
                   ),
                   DashboardFeatureCard(
+                    icon: Icons.table_chart_outlined,
+                    title: 'Monthly Attendance',
+                    description:
+                        'View, edit, and export the full employee month grid',
+                    buttonLabel: 'Open Monthly Attendance',
+                    onPressed: () =>
+                        context.go(AppRoutes.adminMonthlyAttendance),
+                  ),
+                  DashboardFeatureCard(
                     icon: Icons.access_time_outlined,
                     title: 'Login Hours',
                     description:

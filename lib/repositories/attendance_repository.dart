@@ -19,6 +19,21 @@ abstract class AttendanceRepository {
   /// Admin / import only — queries by display name.
   Future<List<AttendanceRecord>> getAllAttendanceForEmployeeName(String name);
 
+  /// All attendance docs whose `date` falls in the given calendar month.
+  Future<List<AttendanceRecord>> getAttendanceForMonthAll({
+    required int year,
+    required int month,
+  });
+
+  /// Creates or updates a single day status. Clears (deletes) when [status]
+  /// is empty or `-`.
+  Future<void> upsertAttendanceStatus({
+    required String employeeName,
+    String? employeeEmail,
+    required DateTime date,
+    required String status,
+  });
+
   Future<void> importAttendanceRecords(List<AttendanceRecord> records);
 
   /// Writes biometric P/A days, leaving manually marked leave days untouched.
@@ -106,6 +121,69 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   }
 
   @override
+  Future<List<AttendanceRecord>> getAttendanceForMonthAll({
+    required int year,
+    required int month,
+  }) async {
+    try {
+      final start =
+          '$year-${month.toString().padLeft(2, '0')}-01';
+      final lastDay = DateTime(year, month + 1, 0).day;
+      final end =
+          '$year-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+
+      final snapshot = await _collection
+          .where('date', isGreaterThanOrEqualTo: start)
+          .where('date', isLessThanOrEqualTo: end)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => AttendanceRecord.fromMap(doc.data(), id: doc.id))
+          .toList();
+    } on FirebaseException catch (e) {
+      throw DataException(
+        e.message ?? 'Failed to load monthly attendance.',
+        code: e.code,
+      );
+    }
+  }
+
+  @override
+  Future<void> upsertAttendanceStatus({
+    required String employeeName,
+    String? employeeEmail,
+    required DateTime date,
+    required String status,
+  }) async {
+    try {
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final docRef = _collection.doc(_documentId(employeeName, dateStr));
+      final normalized = status.trim().toUpperCase();
+
+      if (normalized.isEmpty || normalized == '-') {
+        final existing = await docRef.get();
+        if (existing.exists) {
+          await docRef.delete();
+        }
+        return;
+      }
+
+      await docRef.set({
+        'employeeName': employeeName,
+        'employeeEmail': employeeEmail?.trim().toLowerCase() ?? '',
+        'date': dateStr,
+        'status': normalized,
+      }, SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      throw DataException(
+        e.message ?? 'Failed to save attendance status.',
+        code: e.code,
+      );
+    }
+  }
+
+  @override
   Future<void> importAttendanceRecords(List<AttendanceRecord> records) async {
     try {
       const batchLimit = 450;
@@ -182,10 +260,9 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
       final snapshot = await _collection.where('date', isEqualTo: date).get();
       for (final doc in snapshot.docs) {
         final status = (doc.data()['status'] as String? ?? '').toUpperCase();
-        if (status == AttendanceStatus.leave ||
-            status == AttendanceStatus.halfLeave ||
-            status == AttendanceStatus.shortLeave ||
-            status == AttendanceStatus.unpaidLeave) {
+        // Only full-day / unpaid leave is protected. HL/SL are time-derived and
+        // must stay overwritable when punches are corrected.
+        if (AttendanceStatus.biometricProtectedStatuses.contains(status)) {
           protectedDocIds.add(doc.id);
         }
       }

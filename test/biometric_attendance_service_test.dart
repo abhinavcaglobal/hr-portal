@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/services/biometric_attendance_service.dart';
 
@@ -145,25 +146,30 @@ void main() {
             .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 2))
             .value
             .toString(),
-        'Ritu',
+        'Mayur',
       );
+
+      final rituRow = _rowWithEmployee(sheet, 'Ritu');
+      expect(rituRow, isNotNull);
       expect(
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 2))
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rituRow!))
             .value
             .toString(),
-        '13:06',
+        '1:06 PM',
       );
       expect(
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 2))
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rituRow))
             .value
             .toString(),
-        '18:24',
+        '6:24 PM',
       );
       expect(
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 2))
+            .cell(
+              CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rituRow),
+            )
             .value
             .toString(),
         'HL',
@@ -207,15 +213,69 @@ void main() {
 
       expect(csv, contains('Date : 1st June 2026'));
       expect(csv, contains('S.No,Employee Name,IN,OUT,Status,Remarks'));
-      expect(csv, contains('1,Present Employee,09:00,17:00,P,'));
+      expect(csv, contains('1,Present Employee,9:00 AM,5:00 PM,P,'));
       expect(csv, contains('Date : 2nd June 2026'));
-      expect(csv, contains('1,Short Leave Employee,09:00,15:00,SL,'));
+      expect(csv, contains('1,Short Leave Employee,9:00 AM,3:00 PM,SL,'));
       expect(csv, contains('Date : 3rd June 2026'));
-      expect(csv, contains('1,Half Day Employee,09:00,13:00,HL,'));
+      expect(csv, contains('1,Half Day Employee,9:00 AM,1:00 PM,HL,'));
       expect(
         service.csvFileName(result),
         'attendance_2026-06-01_to_2026-06-03.csv',
       );
+    });
+
+    test('csv and excel list employees in the HR report order', () {
+      final date = DateTime(2026, 6, 1);
+      final result = BiometricProcessResult(
+        fileName: 'attendance.csv',
+        periodStart: date,
+        periodEnd: date,
+        records: [
+          BiometricDailyAttendance(
+            employeeId: '001',
+            employeeName: 'Ritu',
+            date: date,
+            status: 'P',
+            firstIn: '09:00',
+            lastOut: '18:00',
+          ),
+          BiometricDailyAttendance(
+            employeeId: '051',
+            employeeName: 'Mayur',
+            date: date,
+            status: 'P',
+            firstIn: '09:10',
+            lastOut: '18:10',
+          ),
+          BiometricDailyAttendance(
+            employeeId: '074',
+            employeeName: 'Baby Jangra',
+            date: date,
+            status: 'P',
+            firstIn: '09:20',
+            lastOut: '18:20',
+          ),
+          BiometricDailyAttendance(
+            employeeId: '028',
+            employeeName: 'Shouvik Dey',
+            date: date,
+            status: 'A',
+          ),
+        ],
+      );
+
+      final lines = service
+          .toCsv(result)
+          .split('\n')
+          .where((line) => RegExp(r'^\d+,').hasMatch(line))
+          .toList();
+
+      expect(lines, [
+        '1,Mayur,9:10 AM,6:10 PM,P,',
+        '2,Ritu,9:00 AM,6:00 PM,P,',
+        '3,Baby Jangra,9:20 AM,6:20 PM,P,',
+        '4,Shouvik Dey,,,A,',
+      ]);
     });
 
     test('processes full biometric export file when available', () {
@@ -238,5 +298,32 @@ void main() {
       expect(rituJune1.lastOut, '18:24');
       expect(result.records.length, greaterThan(1000));
     });
+
+    test('roster report order runs Mayur through Shouvik Dey', () {
+      final ordered = [...BiometricEmployeeRoster.employees]..sort(
+        (a, b) => BiometricEmployeeRoster.compareReportOrder(
+          aName: a.displayName,
+          aId: a.normalizedId,
+          bName: b.displayName,
+          bId: b.normalizedId,
+        ),
+      );
+
+      expect(
+        ordered.map((employee) => employee.displayName).toList(),
+        BiometricEmployeeRoster.reportOrder,
+      );
+    });
   });
+}
+
+int? _rowWithEmployee(Sheet sheet, String name) {
+  for (var row = 0; row < sheet.maxRows; row++) {
+    final value = sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        .value
+        ?.toString();
+    if (value == name) return row;
+  }
+  return null;
 }

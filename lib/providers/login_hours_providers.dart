@@ -3,17 +3,18 @@ import 'package:hr_portal/core/constants/attendance_status.dart';
 import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
 import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/models/attendance_record.dart';
-import 'package:hr_portal/models/employee.dart';
 import 'package:hr_portal/models/login_hours_record.dart';
 import 'package:hr_portal/providers/admin_auth_providers.dart';
 import 'package:hr_portal/providers/auth_providers.dart';
 import 'package:hr_portal/providers/employee_providers.dart';
+import 'package:hr_portal/providers/monthly_attendance_matrix_providers.dart';
 import 'package:hr_portal/providers/repository_providers.dart';
 import 'package:hr_portal/services/login_hours_display_service.dart';
 import 'package:hr_portal/services/login_hours_excel_exporter.dart';
 import 'package:hr_portal/services/login_hours_range.dart';
 import 'package:hr_portal/services/login_hours_status_resolver.dart';
 import 'package:hr_portal/services/login_hours_sync_service.dart';
+import 'package:hr_portal/services/portal_employee_matcher.dart';
 
 final loginHoursDisplayServiceProvider = Provider<LoginHoursDisplayService>((
   ref,
@@ -154,6 +155,7 @@ class LoginHoursEditController extends StateNotifier<AsyncValue<void>> {
 
       _ref.invalidate(loginHoursForDateProvider);
       _ref.invalidate(monthlyAttendanceProvider);
+      _ref.invalidate(monthlyAttendanceMatrixProvider);
       _ref.invalidate(leaveBalanceProvider);
     });
   }
@@ -167,24 +169,18 @@ class LoginHoursEditController extends StateNotifier<AsyncValue<void>> {
       return;
     }
 
-    // Only sync statuses that biometric calendar sync also writes. SL/HL stay
-    // login-hours-driven so a later time correction can clear them on the
-    // employee calendar without being blocked by a stored leave status.
-    const syncable = {
-      AttendanceStatus.present,
-      AttendanceStatus.latePunch,
-      AttendanceStatus.absent,
-      AttendanceStatus.wfh,
-    };
-    if (!syncable.contains(upper)) {
+    if (!AttendanceStatus.calendarSyncStatuses.contains(upper)) {
       return;
     }
 
     final employees = await _ref
         .read(employeeRepositoryProvider)
         .getAllEmployees();
-    final employee = _findEmployee(record.employeeName, employees);
-    if (employee == null || employee.email.trim().isEmpty) {
+    final match = const PortalEmployeeMatcher().find(
+      record.employeeName,
+      employees,
+    );
+    if (match == null) {
       return;
     }
 
@@ -192,46 +188,13 @@ class LoginHoursEditController extends StateNotifier<AsyncValue<void>> {
         .read(attendanceRepositoryProvider)
         .importBiometricAttendanceRecords([
           AttendanceRecord(
-            employeeName: employee.name,
-            employeeEmail: employee.email.trim().toLowerCase(),
+            employeeName: match.name,
+            employeeEmail: match.email,
             date: record.date,
             status: upper,
           ),
         ]);
   }
-
-  Employee? _findEmployee(String biometricName, List<Employee> employees) {
-    final target = _normalize(_stripWfhLabel(biometricName));
-    if (target.isEmpty) return null;
-
-    final withEmail = employees.where(
-      (employee) => employee.email.trim().isNotEmpty,
-    );
-
-    for (final employee in withEmail) {
-      if (_normalize(_stripWfhLabel(employee.name)) == target) {
-        return employee;
-      }
-    }
-
-    final prefixMatches = withEmail
-        .where(
-          (employee) =>
-              _normalize(_stripWfhLabel(employee.name)).startsWith('$target '),
-        )
-        .toList();
-    if (prefixMatches.length == 1) {
-      return prefixMatches.first;
-    }
-    return null;
-  }
-
-  String _stripWfhLabel(String name) {
-    return name.replaceAll(RegExp(r'\s*\(WFH\)\s*', caseSensitive: false), ' ');
-  }
-
-  String _normalize(String value) =>
-      value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 }
 
 String loginHoursErrorMessage(Object error) {

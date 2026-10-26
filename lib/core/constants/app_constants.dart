@@ -21,6 +21,7 @@ class AppConstants {
   static const String employeesCollection = 'employees';
   static const String employeesByEmailCollection = 'employees_by_email';
   static const String attendanceCollection = 'attendance';
+  static const String attendanceMonthNotesCollection = 'attendance_month_notes';
   static const String loginHoursCollection = 'login_hours';
   static const String uploadHistoryCollection = 'upload_history';
   static const String holidayCalendarsCollection = 'holiday_calendars';

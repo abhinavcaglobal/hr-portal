@@ -39,8 +39,18 @@ service cloud.firestore {
     }
 
     match /attendance/{document=**} {
-      allow read: if isAdmin() || isOwnerEmail(resource.data.employeeEmail);
+      allow get: if isAdmin() || isOwnerEmail(resource.data.employeeEmail);
+      // Admin may list any attendance (month matrix, imports). Employees must
+      // constrain queries to their own employeeEmail.
+      allow list: if isAdmin()
+        || (signedIn()
+            && resource.data.employeeEmail is string
+            && isOwnerEmail(resource.data.employeeEmail));
       allow write: if isAdmin();
+    }
+
+    match /attendance_month_notes/{document=**} {
+      allow read, write: if isAdmin();
     }
 
     match /upload_history/{document=**} {

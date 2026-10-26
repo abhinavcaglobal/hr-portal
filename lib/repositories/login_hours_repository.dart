@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hr_portal/core/constants/app_constants.dart';
+import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
 import 'package:hr_portal/core/errors/app_exception.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/models/login_hours_record.dart';
@@ -196,7 +197,12 @@ class LoginHoursRepositoryImpl implements LoginHoursRepository {
   int _byDateThenName(LoginHoursRecord a, LoginHoursRecord b) {
     final byDate = a.date.compareTo(b.date);
     if (byDate != 0) return byDate;
-    return a.employeeName.toLowerCase().compareTo(b.employeeName.toLowerCase());
+    return BiometricEmployeeRoster.compareReportOrder(
+      aName: a.employeeName,
+      aId: a.employeeId,
+      bName: b.employeeName,
+      bId: b.employeeId,
+    );
   }
 
   @override

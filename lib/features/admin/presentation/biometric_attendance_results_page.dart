@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hr_portal/core/constants/biometric_employee_roster.dart';
 import 'package:hr_portal/core/router/app_router.dart';
 import 'package:hr_portal/core/utils/file_download_helper.dart';
 import 'package:hr_portal/core/widgets/app_logo.dart';
@@ -59,7 +60,17 @@ class _BiometricAttendanceResultsPageState
       final matchesDate =
           _selectedDate == null || _dateKey(record.date) == _selectedDate;
       return matchesSearch && matchesDate;
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        final byEmployee = BiometricEmployeeRoster.compareReportOrder(
+          aName: a.employeeName,
+          aId: a.employeeId,
+          bName: b.employeeName,
+          bId: b.employeeId,
+        );
+        if (byEmployee != 0) return byEmployee;
+        return a.date.compareTo(b.date);
+      });
 
     return Scaffold(
       appBar: AppBar(

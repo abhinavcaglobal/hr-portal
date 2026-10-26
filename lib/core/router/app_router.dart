@@ -6,6 +6,7 @@ import 'package:hr_portal/features/admin/presentation/admin_dashboard_page.dart'
 import 'package:hr_portal/features/admin/presentation/admin_leave_requests_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_login_hours_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_login_page.dart';
+import 'package:hr_portal/features/admin/presentation/admin_monthly_attendance_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_settings_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_upload_history_page.dart';
 import 'package:hr_portal/features/admin/presentation/admin_upload_page.dart';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const adminLogin = '/admin/login';
   static const adminDashboard = '/admin/dashboard';
   static const adminAttendance = '/admin/attendance';
+  static const adminMonthlyAttendance = '/admin/monthly-attendance';
   static const adminLoginHours = '/admin/login-hours';
   static const adminLeaveRequests = '/admin/leave-requests';
   static const adminUpload = '/admin/upload';
@@ -95,6 +97,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.adminAttendance,
         builder: (context, state) => const AdminAttendancePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminMonthlyAttendance,
+        builder: (context, state) => const AdminMonthlyAttendancePage(),
       ),
       GoRoute(
         path: AppRoutes.adminLoginHours,

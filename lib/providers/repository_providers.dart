@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hr_portal/repositories/admin_repository.dart';
+import 'package:hr_portal/repositories/attendance_month_notes_repository.dart';
 import 'package:hr_portal/repositories/attendance_repository.dart';
 import 'package:hr_portal/repositories/employee_repository.dart';
 import 'package:hr_portal/repositories/holiday_calendar_repository.dart';
@@ -21,6 +22,11 @@ final employeeRepositoryProvider = Provider<EmployeeRepository>((ref) {
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
   return AttendanceRepositoryImpl();
 });
+
+final attendanceMonthNotesRepositoryProvider =
+    Provider<AttendanceMonthNotesRepository>((ref) {
+      return AttendanceMonthNotesRepositoryImpl();
+    });
 
 final loginHoursRepositoryProvider = Provider<LoginHoursRepository>((ref) {
   return LoginHoursRepositoryImpl();

@@ -152,4 +152,39 @@ void main() {
       expect(record.status, 'A');
     });
   });
+
+  test('includes punches for roster id 074 Baby Jangra', () {
+    final result = processor.process(
+      fileName: 'test.csv',
+      today: DateTime(2026, 10, 8),
+      parsed: BiometricSheetParseResult(
+        periodStart: DateTime(2026, 10, 8),
+        periodEnd: DateTime(2026, 10, 8),
+        punches: [
+          BiometricPunch(
+            employeeId: '074',
+            employeeName: 'Baby Jangra',
+            date: DateTime(2026, 10, 8),
+            time: '12:02',
+            isIn: true,
+            isOut: false,
+          ),
+          BiometricPunch(
+            employeeId: '074',
+            employeeName: 'Baby Jangra',
+            date: DateTime(2026, 10, 8),
+            time: '12:08',
+            isIn: true,
+            isOut: false,
+          ),
+        ],
+      ),
+    );
+
+    final baby = result.records.singleWhere(
+      (record) => record.employeeId == '074',
+    );
+    expect(baby.employeeName, 'Baby Jangra');
+    expect(baby.firstIn, '12:02');
+  });
 }

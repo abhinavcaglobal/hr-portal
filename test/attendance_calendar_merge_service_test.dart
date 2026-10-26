@@ -224,6 +224,25 @@ void main() {
       expect(merged.single.status, 'L');
     });
 
+    test('login hours clear a stale stored half leave after time correction', () {
+      final date = DateTime(2026, 8, 11);
+      final merged = mergeFor(
+        stored: [
+          AttendanceRecord(
+            employeeName: 'Ritu Sharma',
+            employeeEmail: 'ritu.sharma@caglobal.com',
+            date: date,
+            status: 'HL',
+          ),
+        ],
+        hours: [
+          loginHours(date: date, firstIn: '11:07', lastOut: '20:15'),
+        ],
+      );
+
+      expect(merged.single.status, 'P');
+    });
+
     test('returns days in date order', () {
       final merged = mergeFor(
         hours: [
@@ -294,6 +313,51 @@ void main() {
           'Kawaldeep Kaur',
         )?.normalizedId,
         '069',
+      );
+    });
+
+    test('matches compound first names like Armaanpreet to Armaan', () {
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName(
+          'Armaanpreet kaur',
+        )?.normalizedId,
+        '046',
+      );
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName(
+          'Yashpal Thakur',
+        )?.normalizedId,
+        '048',
+      );
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName(
+          'Gurpreet Singh Sidhu',
+        )?.normalizedId,
+        '052',
+      );
+    });
+
+    test('includes Baby Jangra as biometric id 074', () {
+      expect(
+        BiometricEmployeeRoster.findById('074')?.name,
+        'Baby Jangra',
+      );
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName(
+          'Baby Jangra',
+        )?.normalizedId,
+        '074',
+      );
+    });
+
+    test('matches Rajiv Kumar portal name to biometric Rajeev', () {
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName('Rajiv Kumar')?.normalizedId,
+        '054',
+      );
+      expect(
+        BiometricEmployeeRoster.findByEmployeeName('Rajeev')?.normalizedId,
+        '054',
       );
     });
 

@@ -7,8 +7,9 @@ import 'package:hr_portal/services/attendance_status_calculator.dart';
 /// Combines uploaded attendance sheet records with login hours so the calendar
 /// shows Present/Absent as soon as a login time is recorded.
 ///
-/// Login hours drive P/A. Leave marked on the attendance sheet (L, HL, SL)
-/// always wins, since biometric data cannot tell a leave day from an absence.
+/// Login hours drive P/A/LP/HL/SL. Full-day leave marked on the attendance
+/// sheet (L, UL) always wins. HL/SL stay punch-derived so time corrections can
+/// clear them.
 class AttendanceCalendarMergeService {
   const AttendanceCalendarMergeService({
     this.statusCalculator = const AttendanceStatusCalculator(),
@@ -16,10 +17,10 @@ class AttendanceCalendarMergeService {
 
   final AttendanceStatusCalculator statusCalculator;
 
+  /// Stored statuses that always win over login-hours recalculation.
+  /// HL/SL are punch-duration codes and must not block time corrections.
   static const Set<String> _leaveStatuses = {
     AttendanceStatus.leave,
-    AttendanceStatus.halfLeave,
-    AttendanceStatus.shortLeave,
     AttendanceStatus.unpaidLeave,
   };
 

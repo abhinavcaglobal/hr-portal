@@ -4,6 +4,7 @@ import 'package:hr_portal/core/router/app_router.dart';
 enum AdminNavItem {
   dashboard,
   attendance,
+  monthlyAttendance,
   loginHours,
   leaveRequests,
   employeeEmails,
@@ -16,6 +17,7 @@ extension AdminNavItemX on AdminNavItem {
   String get label => switch (this) {
     AdminNavItem.dashboard => 'Dashboard',
     AdminNavItem.attendance => 'Attendance',
+    AdminNavItem.monthlyAttendance => 'Monthly Attendance',
     AdminNavItem.loginHours => 'Login Hours',
     AdminNavItem.leaveRequests => 'Leave Requests',
     AdminNavItem.employeeEmails => 'Employee Emails',
@@ -27,6 +29,7 @@ extension AdminNavItemX on AdminNavItem {
   IconData get icon => switch (this) {
     AdminNavItem.dashboard => Icons.dashboard_outlined,
     AdminNavItem.attendance => Icons.calendar_month_outlined,
+    AdminNavItem.monthlyAttendance => Icons.table_chart_outlined,
     AdminNavItem.loginHours => Icons.access_time_outlined,
     AdminNavItem.leaveRequests => Icons.event_note_outlined,
     AdminNavItem.employeeEmails => Icons.email_outlined,
@@ -38,6 +41,7 @@ extension AdminNavItemX on AdminNavItem {
   String get route => switch (this) {
     AdminNavItem.dashboard => AppRoutes.adminDashboard,
     AdminNavItem.attendance => AppRoutes.adminAttendance,
+    AdminNavItem.monthlyAttendance => AppRoutes.adminMonthlyAttendance,
     AdminNavItem.loginHours => AppRoutes.adminLoginHours,
     AdminNavItem.leaveRequests => AppRoutes.adminLeaveRequests,
     AdminNavItem.employeeEmails => AppRoutes.adminEmployeeEmails,

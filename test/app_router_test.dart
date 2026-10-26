@@ -255,6 +255,19 @@ void main() {
       );
     });
 
+    test('protects admin monthly attendance route', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/admin/monthly-attendance',
+          isAdminAuthenticated: false,
+          hasAuthUser: false,
+          isEmployeeSession: false,
+          isEmployeeLoading: false,
+        ),
+        '/admin/login',
+      );
+    });
+
     test('allows authenticated admin on leave requests route', () {
       expect(
         AppRouteGuard.redirect(
@@ -272,6 +285,19 @@ void main() {
       expect(
         AppRouteGuard.redirect(
           location: '/admin/login-hours',
+          isAdminAuthenticated: true,
+          hasAuthUser: true,
+          isEmployeeSession: false,
+          isEmployeeLoading: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('allows authenticated admin on monthly attendance route', () {
+      expect(
+        AppRouteGuard.redirect(
+          location: '/admin/monthly-attendance',
           isAdminAuthenticated: true,
           hasAuthUser: true,
           isEmployeeSession: false,

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hr_portal/models/attendance_record.dart';
 import 'package:hr_portal/models/biometric_attendance.dart';
 import 'package:hr_portal/models/employee.dart';
+import 'package:hr_portal/models/login_hours_record.dart';
 import 'package:hr_portal/repositories/attendance_repository.dart';
 import 'package:hr_portal/repositories/employee_repository.dart';
 import 'package:hr_portal/services/biometric_calendar_sync_service.dart';
@@ -54,7 +55,7 @@ void main() {
 
   group('BiometricCalendarSyncService', () {
     test(
-      'maps P and A days to attendance records with employee email',
+      'maps P/A/LP/HL/SL/WFH days to attendance records with employee email',
       () async {
         final attendanceRepo = _RecordingAttendanceRepository();
         final service = BiometricCalendarSyncService(
@@ -71,16 +72,25 @@ void main() {
         final result = await service.sync([
           record(name: 'Ritu', status: 'P', firstIn: '11:07'),
           record(name: 'Ritu', status: 'A'),
+          record(name: 'Ritu', status: 'LP'),
+          record(name: 'Ritu', status: 'HL'),
+          record(name: 'Ritu', status: 'SL'),
         ]);
 
-        expect(result.syncedCount, 2);
+        expect(result.syncedCount, 5);
         expect(result.unmatchedNames, isEmpty);
         expect(attendanceRepo.synced.first.employeeName, 'Ritu Sharma');
         expect(
           attendanceRepo.synced.first.employeeEmail,
           'ritu.sharma@caglobal.com',
         );
-        expect(attendanceRepo.synced.map((r) => r.status), ['P', 'A']);
+        expect(attendanceRepo.synced.map((r) => r.status), [
+          'P',
+          'A',
+          'LP',
+          'HL',
+          'SL',
+        ]);
       },
     );
 
@@ -141,5 +151,64 @@ void main() {
         expect(attendanceRepo.synced, isEmpty);
       },
     );
+
+    test('syncs Rajeev without email onto Rajiv Kumar', () async {
+      final attendanceRepo = _RecordingAttendanceRepository();
+      final service = BiometricCalendarSyncService(
+        employeeRepository: _FakeEmployeeRepository(const []),
+        attendanceRepository: attendanceRepo,
+      );
+
+      final result = await service.sync([
+        record(name: 'Rajeev', status: 'A'),
+        record(name: 'Rajeev', status: 'HL'),
+      ]);
+
+      expect(result.syncedCount, 2);
+      expect(result.unmatchedNames, isEmpty);
+      expect(attendanceRepo.synced.every((r) => r.employeeName == 'Rajiv Kumar'),
+          isTrue);
+      expect(
+        attendanceRepo.synced.every((r) => (r.employeeEmail ?? '').isEmpty),
+        isTrue,
+      );
+      expect(attendanceRepo.synced.map((r) => r.status), ['A', 'HL']);
+    });
+
+    test('syncFromLoginHours writes calculated HL/SL into attendance', () async {
+      final attendanceRepo = _RecordingAttendanceRepository();
+      final service = BiometricCalendarSyncService(
+        employeeRepository: _FakeEmployeeRepository([
+          const Employee(
+            email: 'ritu@caglobal.com',
+            name: 'Ritu Sharma',
+            openingBalance: 0,
+          ),
+        ]),
+        attendanceRepository: attendanceRepo,
+      );
+
+      final result = await service.syncFromLoginHours([
+        LoginHoursRecord(
+          employeeId: '001',
+          employeeName: 'Ritu',
+          date: DateTime(2026, 8, 11),
+          status: 'P',
+          firstIn: '17:00',
+          lastOut: '21:00',
+        ),
+        LoginHoursRecord(
+          employeeId: '001',
+          employeeName: 'Ritu',
+          date: DateTime(2026, 8, 12),
+          status: 'P',
+          firstIn: '14:00',
+          lastOut: '21:00',
+        ),
+      ], today: DateTime(2026, 8, 14));
+
+      expect(result.syncedCount, 2);
+      expect(attendanceRepo.synced.map((r) => r.status), ['HL', 'SL']);
+    });
   });
 }

@@ -25,10 +25,9 @@ class EmployeeList {
     'Smarpit Singh',
     'Nikita',
     'Sakshi Sharma',
-    'Ravneet Kaur',
+    'Shouvik Dey',
     'Vineet Kumar',
     'Pratima',
-    'Jaichand',
     'Anshul Kumar',
     'Ashima Malhotra',
     'Vikram Singh',
@@ -56,6 +55,10 @@ class EmployeeList {
     'Sanjeev Kumar',
     'Kawaldeep Kaur',
     'Pankaj Kalsi',
+    'Rahul Singh',
+    'Nikhil Saini',
+    'Amanjot',
+    'Baby Jangra',
   ];
 
   static List<String> filter(String query) {
